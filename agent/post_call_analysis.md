@@ -5,7 +5,7 @@ because the webhook reads them from `call_analysis.custom_analysis_data`.
 
 | Name | Type | Description (paste into Retell) |
 |---|---|---|
-| `lead_name` | Text | The caller's name, if given. Empty if unknown. |
+| `lead_name` | Text | The caller's own name, only if they stated it (e.g. "I'm Sara", "my name is Sara"). The agent is called Layla: never return "Layla" or "Laila" from a greeting like "Hi Layla". Empty if the caller didn't give their name. |
 | `intent` | Selector: `buy`, `rent`, `sell`, `other` | What the caller wants to do. |
 | `property_type` | Text | Property type and bedrooms, e.g. "2-bed apartment". |
 | `area` | Text | Preferred areas mentioned, comma-separated. |
