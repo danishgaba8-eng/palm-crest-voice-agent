@@ -27,7 +27,17 @@ function doPost(e) {
     if (callIds.includes(body.row[0])) {
       return json({ ok: true, is_new: false });
     }
-    sheet.appendRow(body.row);
+    const rowIndex = sheet.getLastRow() + 1;
+    // Keep phone numbers as text, or Sheets drops the leading "+".
+    const phoneColumn = body.header.indexOf('lead_phone') + 1;
+    if (phoneColumn > 0) {
+      sheet.getRange(rowIndex, phoneColumn).setNumberFormat('@');
+    }
+    sheet
+      .getRange(rowIndex, 1, 1, body.row.length)
+      .setValues([body.row])
+      // Long transcripts would otherwise stretch every row.
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
     return json({ ok: true, is_new: true });
   } finally {
     lock.releaseLock();
