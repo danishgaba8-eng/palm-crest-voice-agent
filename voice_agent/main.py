@@ -73,7 +73,7 @@ def build_default_app() -> FastAPI:
     from retell import Retell
 
     from .config import Settings
-    from .sinks import DisabledSms, GoogleSheetCallLog, TwilioSms
+    from .sinks import AppsScriptCallLog, DisabledSms, GoogleSheetCallLog, TwilioSms
 
     logging.basicConfig(level=logging.INFO)
     settings = Settings.from_env()
@@ -87,13 +87,17 @@ def build_default_app() -> FastAPI:
         if settings.sms_enabled
         else DisabledSms()
     )
-    return create_app(
-        call_log=GoogleSheetCallLog(
+    if settings.sheets_webhook_url:
+        call_log = AppsScriptCallLog(settings.sheets_webhook_url, settings.sheets_webhook_token)
+    else:
+        call_log = GoogleSheetCallLog(
             settings.google_sheet_id,
             settings.google_sheet_tab,
             service_account_file=settings.google_service_account_file,
             service_account_json=settings.google_service_account_json,
-        ),
+        )
+    return create_app(
+        call_log=call_log,
         sms=sms,
         verify_signature=verify,
         agency_name=settings.agency_name,

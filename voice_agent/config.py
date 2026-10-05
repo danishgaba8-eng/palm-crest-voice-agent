@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 @dataclass(frozen=True)
 class Settings:
     retell_api_key: str
+    # Option A: the Sheet's Apps Script web app (no Google Cloud key needed)
+    sheets_webhook_url: str
+    sheets_webhook_token: str
+    # Option B: a service account writing through the Sheets API
     google_service_account_file: str
     google_service_account_json: str
     google_sheet_id: str
@@ -26,13 +30,19 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         load_dotenv()
+        webhook_url = os.getenv("SHEETS_WEBHOOK_URL", "")
         # Locally a key file is simplest; on hosts like Render, paste the JSON into an env var instead.
         account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        use_service_account = not webhook_url
         return cls(
             retell_api_key=_required("RETELL_API_KEY"),
-            google_service_account_file="" if account_json else _required("GOOGLE_SERVICE_ACCOUNT_FILE"),
+            sheets_webhook_url=webhook_url,
+            sheets_webhook_token=_required("SHEETS_WEBHOOK_TOKEN") if webhook_url else "",
+            google_service_account_file=(
+                _required("GOOGLE_SERVICE_ACCOUNT_FILE") if use_service_account and not account_json else ""
+            ),
             google_service_account_json=account_json,
-            google_sheet_id=_required("GOOGLE_SHEET_ID"),
+            google_sheet_id=_required("GOOGLE_SHEET_ID") if use_service_account else "",
             google_sheet_tab=os.getenv("GOOGLE_SHEET_TAB", "Calls"),
             twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID", ""),
             twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN", ""),

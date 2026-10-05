@@ -177,3 +177,50 @@ def test_settings_accept_service_account_json_instead_of_file(monkeypatch):
     assert settings.google_service_account_json == '{"type": "service_account"}'
     assert settings.google_service_account_file == ""
     assert settings.sms_enabled is False
+
+
+def test_apps_script_call_log_posts_row_and_reads_is_new():
+    import httpx
+
+    from voice_agent.sinks import AppsScriptCallLog
+
+    seen = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        seen.append(body)
+        assert body["token"] == "secret"
+        assert body["header"] == SHEET_HEADER
+        return httpx.Response(200, json={"ok": True, "is_new": len(seen) == 1})
+
+    log = AppsScriptCallLog("https://script.example/exec", "secret", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    record = CallRecord.from_retell(analyzed_call()["call"])
+    assert log.append_if_new(record) is True
+    assert log.append_if_new(record) is False
+    assert seen[0]["row"][0] == "call_123"
+
+
+def test_apps_script_call_log_raises_when_token_rejected():
+    import httpx
+
+    from voice_agent.sinks import AppsScriptCallLog
+
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"ok": False, "error": "unauthorized"})))
+    log = AppsScriptCallLog("https://script.example/exec", "wrong", client=client)
+    with pytest.raises(RuntimeError, match="unauthorized"):
+        log.append_if_new(CallRecord.from_retell(analyzed_call()["call"]))
+
+
+def test_settings_with_sheets_webhook_need_no_google_credentials(monkeypatch):
+    from voice_agent.config import Settings
+
+    monkeypatch.setattr("voice_agent.config.load_dotenv", lambda: None)
+    for name in ("GOOGLE_SERVICE_ACCOUNT_FILE", "GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_SHEET_ID"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("RETELL_API_KEY", "key_test")
+    monkeypatch.setenv("SHEETS_WEBHOOK_URL", "https://script.example/exec")
+    monkeypatch.setenv("SHEETS_WEBHOOK_TOKEN", "secret")
+
+    settings = Settings.from_env()
+    assert settings.sheets_webhook_url == "https://script.example/exec"
+    assert settings.google_sheet_id == ""

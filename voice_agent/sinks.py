@@ -42,6 +42,28 @@ class GoogleSheetCallLog:
         return True
 
 
+class AppsScriptCallLog:
+    """Posts rows to the Sheet's Apps Script web app (apps_script/Code.gs)."""
+
+    def __init__(self, url: str, token: str, client=None):
+        import httpx
+
+        self._url = url
+        self._token = token
+        # Apps Script answers POSTs with a redirect to the actual response.
+        self._client = client or httpx.Client(timeout=20, follow_redirects=True)
+
+    def append_if_new(self, record: CallRecord) -> bool:
+        response = self._client.post(
+            self._url, json={"token": self._token, "header": SHEET_HEADER, "row": record.to_row()}
+        )
+        response.raise_for_status()
+        result = response.json()
+        if not result.get("ok"):
+            raise RuntimeError(f"Apps Script rejected the row: {result.get('error')}")
+        return bool(result.get("is_new"))
+
+
 class TwilioSms:
     def __init__(self, account_sid: str, auth_token: str, from_number: str):
         from twilio.rest import Client

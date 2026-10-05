@@ -19,11 +19,21 @@ Caller ⇄ Twilio/Retell number ⇄ Retell agent (Deepgram STT · GPT · ElevenL
 2. Settings → Developer → API keys: create a key. Note the **event type ID** (shown in the event's URL).
 
 ## 2. Google Sheet (CRM)
-1. Create a blank sheet and copy its ID from the URL (`/d/<ID>/edit`).
-2. In Google Cloud: create a project, enable the **Google Sheets API**, then create a service account and
-   download its JSON key as `voice-agent/service-account.json`.
-3. Share the sheet with the service account's `client_email` as Editor.
-   The service writes the header row itself on first run.
+The webhook posts each call to a small Apps Script attached to the Sheet. No Google Cloud project or
+service-account key is needed (new Google Cloud organisations block key creation by default).
+
+1. Create a blank Google Sheet, e.g. "Palm Crest Calls".
+2. **Extensions → Apps Script**, replace the editor contents with [apps_script/Code.gs](apps_script/Code.gs), save.
+3. **Project Settings (gear) → Script properties → Add**: `TOKEN` = a long random string.
+   Use the same string for `SHEETS_WEBHOOK_TOKEN`.
+4. **Deploy → New deployment → Web app**: Execute as **Me**, Who has access **Anyone** → Deploy, and approve
+   the permissions prompt. Copy the `/exec` URL into `SHEETS_WEBHOOK_URL`.
+
+The script creates the `Calls` tab and header row on the first call and skips duplicate `call_id`s.
+After editing `Code.gs`, use **Deploy → Manage deployments → Edit → New version** so the URL keeps working.
+
+Prefer the Sheets API? Leave `SHEETS_WEBHOOK_URL` empty and set `GOOGLE_SHEET_ID` plus
+`GOOGLE_SERVICE_ACCOUNT_FILE` or `GOOGLE_SERVICE_ACCOUNT_JSON` instead.
 
 ## 3. Run the webhook
 ```bash
@@ -37,8 +47,8 @@ For a quick local test, expose it to Retell with `ngrok http 8000`.
 
 ### Deploy to Render (always on)
 1. In Render: **New → Blueprint**, pick this repo. [render.yaml](render.yaml) defines the web service.
-2. Fill the secret env vars when prompted. For `GOOGLE_SERVICE_ACCOUNT_JSON`, paste the whole contents of
-   the service-account key file (no file upload needed).
+2. Fill the secret env vars when prompted: `RETELL_API_KEY`, `SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_TOKEN`.
+   Twilio fields can stay blank until you want real SMS.
 3. Once it's live, check `https://<service>.onrender.com/health` returns `{"status":"ok"}`.
 
 The free plan sleeps after ~15 minutes idle and takes up to a minute to wake, so the first webhook after a
